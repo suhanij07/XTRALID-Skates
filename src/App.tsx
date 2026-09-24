@@ -35,6 +35,20 @@ function App() {
     let displayProgress = 0
     let duration = 0
     let lastTouchY = 0
+    let lastSeekAt = 0
+    let mediaUnlocked = false
+
+    section.style.touchAction = 'none'
+
+    const unlockMedia = () => {
+      if (mediaUnlocked) return
+      mediaUnlocked = true
+      video.muted = true
+      const playback = video.play()
+      if (playback) playback.then(() => video.pause()).catch(() => {
+        mediaUnlocked = false
+      })
+    }
 
     const updateDuration = () => {
       duration = Number.isFinite(video.duration) ? video.duration : 0
@@ -43,6 +57,7 @@ function App() {
 
     const onWheel = (event: WheelEvent) => {
       if (scrollY > 2) return
+      unlockMedia()
       const movingForward = event.deltaY > 0
       const movingBackward = event.deltaY < 0
       const isScrubbing = (movingForward && targetProgress < 0.999) || (movingBackward && targetProgress > 0.001)
@@ -54,6 +69,7 @@ function App() {
     }
 
     const onTouchStart = (event: TouchEvent) => {
+      unlockMedia()
       lastTouchY = event.touches[0]?.clientY ?? 0
     }
 
@@ -64,20 +80,31 @@ function App() {
       lastTouchY = currentY
       const movingForward = delta > 0
       const movingBackward = delta < 0
+
+      event.preventDefault()
+      if (movingForward && targetProgress >= 0.999) {
+        scrollTo({ top: section.offsetHeight, behavior: 'smooth' })
+        return
+      }
+
       const isScrubbing = (movingForward && targetProgress < 0.999) || (movingBackward && targetProgress > 0.001)
 
       if (!isScrubbing) return
-      event.preventDefault()
       targetProgress = Math.min(1, Math.max(0, targetProgress + delta * 0.0032))
     }
 
-    const tick = () => {
+    const tick = (now: number) => {
       displayProgress += (targetProgress - displayProgress) * 0.14
       const displayTime = displayProgress * duration
 
       if (progressBar.current) progressBar.current.style.transform = `scaleX(${displayProgress})`
-      if (duration > 0 && Math.abs(video.currentTime - displayTime) > 0.008 && !video.seeking) {
-        video.currentTime = Math.min(duration, Math.max(0, displayTime))
+      if (duration > 0 && Math.abs(video.currentTime - displayTime) > 0.016 && now - lastSeekAt >= 32) {
+        try {
+          video.currentTime = Math.min(duration, Math.max(0, displayTime))
+          lastSeekAt = now
+        } catch {
+          // Some mobile engines reject seeks until the first user gesture.
+        }
       }
 
       frame = requestAnimationFrame(tick)
@@ -88,6 +115,7 @@ function App() {
     addEventListener('wheel', onWheel, { passive: false })
     addEventListener('touchstart', onTouchStart, { passive: true })
     addEventListener('touchmove', onTouchMove, { passive: false })
+    video.load()
     if (video.readyState >= 1) updateDuration()
     frame = requestAnimationFrame(tick)
 
@@ -98,6 +126,7 @@ function App() {
       removeEventListener('wheel', onWheel)
       removeEventListener('touchstart', onTouchStart)
       removeEventListener('touchmove', onTouchMove)
+      section.style.touchAction = ''
     }
   }, [])
 
