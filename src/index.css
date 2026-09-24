@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+:root { font-family: "Inter Tight", sans-serif; color: white; background: white; font-synthesis: none; }
+* { box-sizing: border-box; }
+html { background: white; }
+body { margin: 0; min-width: 320px; overflow-x: hidden; }
+.scroll-progress { transform-origin: left; }
+.bp-card { will-change: transform; }
+@media (min-width: 1024px) and (hover: hover) { body, a, button { cursor: none; } }
+@media (prefers-reduced-motion: reduce) { .bp-card { will-change: auto; } }
+
